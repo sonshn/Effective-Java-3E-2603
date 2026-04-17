@@ -111,3 +111,58 @@ public final class Money {
     }
 }
 ```
+
+## Item 18. 상속보다는 컴포지션을 사용하라
+
+### ⭐ 핵심 요약
+- **구현 상속은 상위 클래스 내부 구현에 강하게 결합되기 때문에 캡슐화를 깨고 상위 클래스 변경에 취약하다.**
+- “~은 ~이다(is-a)”가 명확하지 않으면 상속 대신 컴포지션을 사용하는 것이 좋다.
+- 기능 확장은 **래퍼(데코레이터) 패턴**으로 기능 확장이 더 안전하고 유연하다.
+- 특히 **HashSet** 같은 구체 클래스 상속은 실수 유발 가능성이 크다.
+
+### 예시 코드 (18-2)
+```java
+// 상속 대신 컴포지션
+class InstrumentedSet<E> extends ForwardingSet<E> {
+    private int addCount = 0;
+
+    public InstrumentedSet(Set<E> set s) {
+        super(s);
+    }
+
+    @Overide public boolean add(E e) {
+        addCount++;
+        return set.add(e);
+    }
+
+    @Overide public boolean addAll(Collection<? extends E> c) {
+        addCount += c.size();
+        return set.addAll(c);
+    }
+
+    public int getAddCount() {
+        return addCount;
+    }
+}
+```
+
+## Item 19. 상속을 고려해 설계하고 문서화하라. 그러지 않았다면 상속을 금지하라
+
+### 핵심 요약
+- 상속용 클래스는 내부 동작(자기 사용, 호출 순서, 재정의 훅)을 문서화해야 한다.
+- 재정의 가능한 메서드를 생성자/clone/readObject에서 호출하면 위험하다.
+- 상속을 염두에 두지 않은 클래스 아래와 같이 하는 것이 안전하다.
+  1. final로 선언
+  2. 생성자를 package-private/private으로 두고, 정적 팩터리를 제공해서 상속 차단
+
+### 예시 코드
+```java
+// 상속을 허용하지 않는 설계
+public final class JwtUtils {
+    private JwtUtils() {}
+
+    public static boolean isValid(String token) {
+        return token != null && token.split("\\.").length == 3;
+    }
+}
+```
