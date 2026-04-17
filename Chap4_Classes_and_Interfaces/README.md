@@ -191,3 +191,72 @@ public final class JwtUtils {
 - 상수 공개 목적으로 인터페이스를 사용하는 상수 인터페이스 패턴은 지양!
 - 상수는 관련 클래스/`enum` 내부에 두거나, 별도 유틸리티 클래스(`public static final`)로 관리하자!
 
+## Item 23. 태그 달린 클래스보다는 클래스 계층구조를 활용하라
+
+### 핵심 요약
+- 하나의 클래스에서 type 태그로 분기 처리하면 복잡하고 오류에도 취약하니, 변하는 행위는 다형성을 활용하여 하위 클래스로 분리하자!
+- 가독성 좋고, 확장성도 확보할 수 있고, 타입 안정성도 향상되고...
+- ⭐ **결론: if/switch 태그 분기보다 계층 + 오버라이딩이 바람직하다.**
+
+### 예시 코드 (23-2)
+```java
+abstract class Shape {
+    abstract double area();
+}
+
+class Circle extends Shape {
+    private final double radius;
+    Circle(double radius) { this.radius = radius; }
+
+    @Override
+    double area() {
+        return Math.PI * radius * radius;
+    }
+}
+
+class Rectangle extends Shape {
+    private final double width, height;
+    Rectangle(double width, double height) {
+        this.width = width; this.height = height;
+    }
+
+    @Override
+    double area() {
+        return width * height;
+    }
+}
+```
+
+## Item 24. 멤버 클래스는 되도록 static으로 만들라
+
+### 핵심 요약
+- **비정적 멤버 클래스는 바깥 인스턴스를 암묵적으로 참조**한다. 따라서 불필요한 메모리 점유나 메모리 누수 위험, 성능 비용이 생길 수 있다.
+- 바깥 인스턴스에 접근할 필요가 없으면 `static` 중첩 클래스를 사용!
+- 익명 클래스/지역 클래스는 사용 범위를 최소화하자.
+
+### 예시 코드
+```java
+class Outer {
+    private int value = 10;
+
+    // 바깥 인스턴스 참조 필요 없음 -> static 권장
+    static class Helper {
+        static int doubleValue(int x) {
+            return x * 2;
+        }
+    }
+
+    // 바깥 인스턴스 상태 사용 필요 시에만 non-static
+    class Inner {
+        int plusOuter() {
+            return value + 1;
+        }
+    }
+}
+```
+
+## Item 25. 톱레벨 클래스는 한 파일에 하나만 담으라
+
+### 핵심 요약
+- 한 파일에 여러 톱레벨 클래스를 넣으면 가독성/유지보수성이 떨어진다.
+- ⭐ 파일당 하나의 톱레벨 타입(클래스, 인터페이스)을 유지하자!
