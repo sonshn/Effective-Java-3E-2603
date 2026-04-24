@@ -168,3 +168,115 @@ public class Item30Example {
 ```
 
 ---
+
+## Item 31. 한정적 와일드카드를 사용해 API 유연성을 높이라
+
+### 핵심 요약
+- ⭐ 생산자-소비자 원칙: **PECS** (어떤 와일드카드 타입을 써야 하는지 판단하는 기준)
+  - Producer-extends: 읽기 생산자 -> `? extends T`
+  - Consumer-super: 쓰기 소비자 -> `? super T`
+- 와일드카드를 쓰면 더 다양한 타입 인자를 받아 API가 유연해진다.
+  - 메서드 선언에 타입 매개변수가 한 번만 나오면 와일드카드로 대체하기
+- **유의 사항**
+  - 반환 타입에는 한정적 와일드카드 타입을 사용하면 안 된다.
+  - ⭐ `Comparable`와 `Comparator` 모두 `<E>`보다는 `Comparator<? super E>를 사용하는 것이 좋다! 
+
+### 예시 코드
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class Item31Example {
+    // src는 생산자(읽기) -> extends
+    // dst는 소비자(쓰기) -> super
+    public static <T> void copy(List<? extends T> src, List<? super T> dst) {
+        for (T t : src) {
+            dst.add(t);
+        }
+    }
+
+    public static void main(String[] args) {
+        List<Integer> src = List.of(1, 2, 3);
+        List<Number> dst = new ArrayList<>();
+        copy(src, dst);
+        System.out.println(dst); // [1, 2, 3]
+    }
+}
+```
+
+---
+
+## Item 32. 제네릭과 가변인수를 함께 쓸 때는 신중하라
+
+### 핵심 요약
+- ⭐ **제네릭 varargs 배열 매개변수에 값을 저장하는 것은 안전하지 않다**.
+  - ⭐ 가변인수는 내부적으로 배열을 사용하므로 제네릭과 함께 쓰면 힙 오염(heap pollution) 위험이 있다.
+  - 따라서 제네릭 varargs 배열 매개변수에 다른 메서드가 접근하도록 허용하면 안전하지 않다.
+- 제네릭이나 매개변수화 타입의 varargs 매개변수를 받는 모든 메서드에 `@SafeVarargs`를 사용하라. (타입 안전이 보장되는 경우)
+- 가능하면 가변인수 대신 리스트 매개변수도 고려하는 것이 좋다.
+
+### 예시 코드
+```java
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class Item32Example {
+
+    @SafeVarargs
+    public static <T> List<T> flatten(List<? extends T>... lists) {
+        List<T> result = new ArrayList<>();
+        for (List<? extends T> list : lists) {
+            result.addAll(list);
+        }
+        return result;
+    }
+
+    public static void main(String[] args) {
+        List<Integer> a = Arrays.asList(1, 2);
+        List<Integer> b = Arrays.asList(3, 4);
+        System.out.println(flatten(a, b)); // [1, 2, 3, 4]
+    }
+}
+```
+
+---
+
+## Item 33. 타입 안전 이종 컨테이너를 고려하라
+
+### 핵심 요약
+- 일반 제네릭 컨테이너는 한 컨테이너당 한 타입 파라미터만 안전하게 담는다.
+- **`Class<T>`를 키로 사용하면 하나의 컨테이너에 여러 타입 값을 타입 안전하게 저장 가능하다**.
+
+### 예시 코드
+```java
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+class Favorites {
+    private final Map<Class<?>, Object> favorites = new HashMap<>();
+
+    public <T> void putFavorite(Class<T> type, T instance) {
+        favorites.put(Objects.requireNonNull(type), instance);
+    }
+
+    public <T> T getFavorite(Class<T> type) {
+        return type.cast(favorites.get(type));
+    }
+}
+
+public class Item33Example {
+    public static void main(String[] args) {
+        Favorites f = new Favorites();
+        f.putFavorite(String.class, "Java");
+        f.putFavorite(Integer.class, 3);
+
+        String favoriteString = f.getFavorite(String.class);
+        Integer favoriteInteger = f.getFavorite(Integer.class);
+
+        System.out.println(favoriteString);  // Java
+        System.out.println(favoriteInteger); // 3
+    }
+}
+```
