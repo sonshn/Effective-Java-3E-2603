@@ -124,3 +124,148 @@ public class Item37Example {
     }
 }
 ```
+
+---
+
+## Item 38. 확장할 수 있는 열거 타입이 필요하면 인터페이스를 사용하라
+
+### 핵심 요약
+- ⭐ enum은 상속이 불가능하므로 확장 가능한 enum이 필요하면 직접 확장 대신 **인터페이스로 공통 타입을 정의**한다.
+- 서로 다른 enum들이 같은 역할/연산 집합을 공유하게 만들 수 있다.
+- 클라이언트는 인터페이스 타입을 기준으로 코드를 작성해 확장에 열려 있게 된다.
+
+### 예시 코드
+```java
+interface Operation {
+    double apply(double x, double y);
+}
+
+enum BasicOperation implements Operation {
+    PLUS { public double apply(double x, double y) { return x + y; } },
+    MINUS { public double apply(double x, double y) { return x - y; } }
+}
+
+enum ExtendedOperation implements Operation {
+    MULTIPLY { public double apply(double x, double y) { return x * y; } },
+    DIVIDE { public double apply(double x, double y) { return x / y; } }
+}
+
+class Calc {
+    static double eval(Operation op, double x, double y) {
+        return op.apply(x, y);
+    }
+}
+```
+
+---
+
+## Item 39. 명명 패턴보다 애너테이션을 사용하라
+
+### 핵심 요약
+- ⭐ 메서드 이름이 `test`로 시작하면 테스트 같은 명명 패턴은 아래와 같은 단점이 있다.
+  - 강제력이 없고, 오타를 컴파일러가 잡지 못한다.
+  - 매개변수/접근제어자 규칙도 제대로 표현하기 어렵다.
+- 애너테이션은 코드 요소(클래스/메서드/필드)에 **의도를 선언적으로 부여**하며, JUnit과 같은 도구가 정확히 인식하고 처리하는 것이 가능하다.
+- 또한, `Retention`, `Target`을 정확히 설정해야 런타임 처리 가능/불가능이 결정된다.
+
+### 예시 코드
+```java
+import java.lang.annotation.*;
+import java.lang.reflect.*;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+@interface MyTest { }
+
+class Sample {
+    @MyTest public static void ok() { }
+    @MyTest public static void fail() { throw new RuntimeException("boom"); }
+    public static void helper() { }
+}
+
+public class Item39Runner {
+    public static void main(String[] args) throws Exception {
+        int tests = 0, passed = 0;
+        for (Method m : Sample.class.getDeclaredMethods()) {
+            if (m.isAnnotationPresent(MyTest.class)) {
+                tests++;
+                try {
+                    m.invoke(null);
+                    passed++;
+                } catch (InvocationTargetException e) {
+                    System.out.println(m.getName() + " failed: " + e.getCause());
+                }
+            }
+        }
+        System.out.printf("Passed %d/%d%n", passed, tests);
+    }
+}
+```
+
+---
+
+## Item 40. @Override 애너테이션을 일관되게 사용하라
+
+### 핵심 요약
+- ⭐ `@Override`의 가치는 문서화보다 컴파일러 검증이다: 오타/시그니처 불일치로 인해 오버라이딩이 아니라 오버로딩이 되어버리는” 흔한 실수를 막는다.
+- 흔한 실수는 아래와 같다.
+  - 메서드 이름 오타
+  - 매개변수 타입/순서 불일치
+  - 접근 제어/throws 변경으로 시그니처가 달라짐
+  - 인터페이스 메서드 구현이라고 생각했는데 실제로는 새 메서드(오버로딩)가 되어 버림
+
+### 예시 코드
+```java
+interface Greeter {
+    void hello();
+}
+
+class Impl implements Greeter {
+    @Override
+    public void hello() {
+        System.out.println("hello");
+    }
+
+    // @Override
+    // public void helo() { } // 컴파일 오류로 조기 발견 가능
+}
+```
+
+---
+
+## Item 41. 정의하려는 것이 타입이라면 마커 인터페이스를 사용하라
+
+### 핵심 요약
+- '마커'는 **이 타입은 특정 성질을 가진다**를 나타내거나, **아무 메서드도 없지만 특정 성질을 표시**하고 싶을 때 사용한다.
+- **마커 인터페이스**의 강점은 아래와 같다.
+  - 그 성질을 **타입 시스템**에 포함시킬 수 있으며, 메서드 파라미터나 제네릭 바운드로 제한이 가능하다.
+  - 표식이 있는 객체만 받는 API를 만들 수 있다.
+  - **마커 인터페이스**는 해당 타입을 구현한 객체만 받을 수 있게 하여 컴파일 타임 타입 검사가 가능하다.
+- 마커 애너테이션이 더 나은 경우는 다양한 대상(클래스/메서드/필드)에 붙이고 싶거나 프레임워크가 스캔/처리하는 메타데이터로 쓰는 경우이다.
+- “이 성질을 가진 객체만 받는 API를 만들고 싶다”면 마커 인터페이스가 특히 유리하다.
+
+### 예시 코드 (타입 제약)
+```java
+interface Auditable { } // 마커 인터페이스
+
+class AuditEvent implements Auditable {
+    private final String message;
+    AuditEvent(String message) { this.message = message; }
+    public String getMessage() { return message; }
+}
+
+class AuditService {
+    public void record(Auditable event) {
+        System.out.println("record: " + event.getClass().getSimpleName());
+    }
+}
+
+public class Item41Example {
+    public static void main(String[] args) {
+        AuditService s = new AuditService();
+        s.record(new AuditEvent("login"));
+
+        // s.record("string"); // 컴파일 에러: Auditable 아님
+    }
+}
+```
